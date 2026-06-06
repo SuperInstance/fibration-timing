@@ -1,0 +1,12 @@
+[package]
+name = "fibration-timing"
+version = "0.1.0"
+edition = "2024"
+description = "Temporal coordination in multi-agent dialogue modeled as a fiber bundle over a base timeline"
+license = "MIT"
+repository = "https://github.com/SuperInstance/fibration-timing"
+keywords = ["fiber-bundle", "timing", "multi-agent", "differential-geometry", "synchronization"]
+categories = ["mathematics", "science"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
