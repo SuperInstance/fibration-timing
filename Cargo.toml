@@ -1,10 +1,13 @@
 [package]
+rust-version = "1.70"
+readme = "README.md"
 name = "fibration-timing"
 version = "0.1.0"
 edition = "2024"
 description = "Temporal coordination in multi-agent dialogue modeled as a fiber bundle over a base timeline"
 license = "MIT"
 repository = "https://github.com/SuperInstance/fibration-timing"
+documentation = "https://docs.rs/fibration-timing"
 keywords = ["fiber-bundle", "timing", "multi-agent", "differential-geometry", "synchronization"]
 categories = ["mathematics", "science"]
 
