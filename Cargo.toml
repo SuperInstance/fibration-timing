@@ -1,0 +1,12 @@
+[package]
+name = "fibration-timing"
+version = "0.1.0"
+edition = "2021"
+description = "Fiber bundle timing for concurrent agent scheduling — holonomy = drift"
+license = "MIT"
+repository = "https://github.com/SuperInstance/fibration-timing"
+keywords = ["fiber-bundle", "scheduling", "holonomy", "concurrency", "agent"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
