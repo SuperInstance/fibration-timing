@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::curvature::CurvatureForm;
-use crate::linalg::{mat_exp, mat_mul, mat_mul as mm, zeros, identity};
+use crate::linalg::{identity, mat_exp, mat_mul, mat_mul as mm, zeros};
+use serde::{Deserialize, Serialize};
 
 /// Ehresmann connection 1-form ω.
 /// components[i][j] represents the (i,j) entry of the Lie-algebra-valued form.
@@ -149,10 +149,7 @@ mod tests {
 
     #[test]
     fn structure_equation_d_omega_plus_omega_wedge_omega() {
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, 0.5],
-            vec![0.0, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, 0.5], vec![0.0, 0.0]]);
         let curv = omega.curvature();
         // dω = 0 (constant), ω∧ω = 0 (nilpotent upper-triangular 2x2)
         assert!(curv.is_zero());

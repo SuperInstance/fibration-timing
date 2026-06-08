@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::linalg::frobenius;
+use serde::{Deserialize, Serialize};
 
 /// Curvature 2-form Ω = dω + ω ∧ ω.
 /// For multi-dimensional base, components[k][i][j] is the (i,j) component
@@ -66,19 +66,13 @@ mod tests {
 
     #[test]
     fn nonzero_curvature_not_flat() {
-        let c = CurvatureForm::new(vec![vec![
-            vec![0.0, 0.1],
-            vec![0.0, 0.0],
-        ]]);
+        let c = CurvatureForm::new(vec![vec![vec![0.0, 0.1], vec![0.0, 0.0]]]);
         assert!(!c.is_flat());
     }
 
     #[test]
     fn desynchronization_scales_linearly() {
-        let c = CurvatureForm::new(vec![vec![
-            vec![0.0, 0.5],
-            vec![0.0, 0.0],
-        ]]);
+        let c = CurvatureForm::new(vec![vec![vec![0.0, 0.5], vec![0.0, 0.0]]]);
         let d1 = c.desynchronization(1.0);
         let d2 = c.desynchronization(2.0);
         assert!((d2 - 2.0 * d1).abs() < 1e-10);
@@ -86,10 +80,7 @@ mod tests {
 
     #[test]
     fn curvature_norm_matches_frobenius() {
-        let c = CurvatureForm::new(vec![vec![
-            vec![3.0, 4.0],
-            vec![0.0, 0.0],
-        ]]);
+        let c = CurvatureForm::new(vec![vec![vec![3.0, 4.0], vec![0.0, 0.0]]]);
         // Frobenius = sqrt(9 + 16) = 5.0
         assert!((c.norm() - 5.0).abs() < 1e-10);
     }

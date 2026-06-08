@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use crate::connection::ConnectionForm;
 use crate::curvature::CurvatureForm;
-use crate::linalg::{identity, mat_mul, transpose, solve};
+use crate::linalg::{identity, mat_mul, solve, transpose};
+use serde::{Deserialize, Serialize};
 
 /// A gauge choice that fixes the synchronization frame.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,28 +165,19 @@ mod tests {
 
     #[test]
     fn gauge_transformation_preserves_curvature_norm() {
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, 0.1],
-            vec![-0.1, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, 0.1], vec![-0.1, 0.0]]);
         let curv = omega.curvature();
 
         // Rotate by 45 degrees
         let s2 = std::f64::consts::FRAC_1_SQRT_2;
-        let g = vec![
-            vec![s2, -s2],
-            vec![s2, s2],
-        ];
+        let g = vec![vec![s2, -s2], vec![s2, s2]];
         let fixer = GaugeFixer::custom("rotated".to_string(), g);
         assert!(fixer.verify_gauge_invariance(&curv));
     }
 
     #[test]
     fn matrix_inversion_roundtrip() {
-        let m = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-        ];
+        let m = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
         let inv = GaugeFixer::invert(&m).unwrap();
         let product = mat_mul(&m, &inv);
         let id = identity(2);

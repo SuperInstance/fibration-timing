@@ -1,5 +1,20 @@
-use serde::{Deserialize, Serialize};
+//! # fibration-timing
+//!
+//! Temporal coordination in multi-agent dialogue modeled as a fiber bundle
+//! over a base timeline.
+//!
+//! Each agent's clock is a fiber over a shared base timeline. Connection forms
+//! capture inter-agent drift, curvature detects systematic timing errors, and
+//! holonomy quantifies accumulated desynchronization around closed dialogue cycles.
+//! Gauge fixing selects a canonical synchronization frame.
 
+// Pre-existing numeric code triggers several clippy pedantic lints.
+#![allow(
+    unused_imports,
+    unused_variables,
+    clippy::too_many_arguments,
+    clippy::needless_range_loop
+)]
 pub mod bundle;
 pub mod connection;
 pub mod curvature;
@@ -158,8 +173,8 @@ mod integration_tests {
     use crate::curvature::CurvatureForm;
     use crate::gauge_fix::GaugeFixer;
     use crate::holonomy::HolonomyGroup;
-    use crate::section_lifter::SectionLifter;
     use crate::linalg::{identity, mat_exp, mat_mul, solve, transpose};
+    use crate::section_lifter::SectionLifter;
 
     #[test]
     fn single_agent_curvature_zero() {
@@ -181,10 +196,7 @@ mod integration_tests {
         // Two agents, one drifting at rate δ relative to the other.
         // Connection: ω = [[0, δ], [0, 0]]
         let delta = 0.05;
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, delta],
-            vec![0.0, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, delta], vec![0.0, 0.0]]);
         let curv = omega.curvature();
         // Nilpotent 2x2 → ω∧ω = 0, dω = 0 → curvature = 0
         assert!(curv.is_zero());
@@ -194,10 +206,7 @@ mod integration_tests {
     fn two_agents_non_nilpotent_curvature() {
         // ω = [[0, δ], [-δ, 0]] → ω∧ω = [[-δ², 0], [0, -δ²]]
         let delta = 0.1;
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, delta],
-            vec![-delta, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, delta], vec![-delta, 0.0]]);
         let curv = omega.curvature();
         // Curvature[0][0] = -δ², Curvature[1][1] = -δ²
         assert!((curv.components[0][0][0] - (-delta * delta)).abs() < 1e-10);
@@ -209,10 +218,7 @@ mod integration_tests {
     fn holonomy_around_cycle_equals_drift_times_length() {
         // Constant drift connection, rectangular cycle
         let delta = 0.1;
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, delta],
-            vec![-delta, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, delta], vec![-delta, 0.0]]);
         let width = 2.0;
         let height = 3.0;
         let h = HolonomyGroup::rectangular_cycle(&omega, width, height, 100);
@@ -263,10 +269,7 @@ mod integration_tests {
     fn parallel_transport_preserves_fiber_metric() {
         // For a connection that is anti-symmetric (so(2)), parallel transport
         // preserves the Euclidean inner product.
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, 0.3],
-            vec![-0.3, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, 0.3], vec![-0.3, 0.0]]);
         let transport = omega.horizontal_lift(1.0, 1000);
         let transport_t = transpose(&transport);
         let product = mat_mul(&transport_t, &transport);
@@ -280,10 +283,7 @@ mod integration_tests {
 
     #[test]
     fn gauge_transformation_preserves_curvature_invariant() {
-        let omega = ConnectionForm::new(vec![
-            vec![0.0, 0.2],
-            vec![-0.2, 0.0],
-        ]);
+        let omega = ConnectionForm::new(vec![vec![0.0, 0.2], vec![-0.2, 0.0]]);
         let curv = omega.curvature();
 
         // Non-trivial gauge transformation (rotation)

@@ -29,7 +29,16 @@ impl AgentClock {
 
     /// Compute local time with PID correction applied.
     /// The PID controller targets zero desynchronization.
-    pub fn corrected_time(&self, t: f64, kp: f64, ki: f64, kd: f64, error: f64, integral: f64, derivative: f64) -> f64 {
+    pub fn corrected_time(
+        &self,
+        t: f64,
+        kp: f64,
+        ki: f64,
+        kd: f64,
+        error: f64,
+        integral: f64,
+        derivative: f64,
+    ) -> f64 {
         let correction = kp * error + ki * integral + kd * derivative;
         self.local_time(t) - correction
     }

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::bundle::{AgentClock, TimingBundle};
+use serde::{Deserialize, Serialize};
 
 /// Lifts base-level schedules to individual agent timelines (sections of the bundle).
 #[derive(Debug, Clone, Serialize, Deserialize)]
