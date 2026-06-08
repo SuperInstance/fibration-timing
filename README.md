@@ -130,3 +130,14 @@ Part of the **SuperInstance research program**. This repo connects to the
 **Direct counterpart:** [$fleet_link](https://github.com/SuperInstance/$fleet_link)
 
 **Bridge:** $bridge_desc
+
+---
+
+## Fleet Integration
+
+Part of the **SuperInstance research program**. This repo connects to the
+200-repo MIDI fleet through the shared mathematical framework.
+
+**Direct counterpart:** [$fleet_link](https://github.com/SuperInstance/$fleet_link)
+
+**Bridge:** $bridge_desc
