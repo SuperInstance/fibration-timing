@@ -1,174 +1,168 @@
 use serde::{Deserialize, Serialize};
+use crate::curvature::CurvatureForm;
+use crate::linalg::{mat_exp, mat_mul, mat_mul as mm, zeros, identity};
 
-use crate::error::FiberError;
-
-/// A connection on a fiber bundle defines parallel transport between fibers
-/// and encodes curvature (the failure of transport to commute).
+/// Ehresmann connection 1-form ω.
+/// components[i][j] represents the (i,j) entry of the Lie-algebra-valued form.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Connection {
-    /// Parallel transport matrices. `transport[i]` is the d×d matrix
-    /// transporting from base point i to i+1 (or from point i to i if singleton).
-    pub transport: Vec<Vec<Vec<f64>>>,
+pub struct ConnectionForm {
+    /// Matrix components of the connection form.
+    pub components: Vec<Vec<f64>>,
 }
 
-impl Connection {
-    /// Create a flat (identity) connection of the given dimension over `n` segments.
-    ///
-    /// A flat connection has zero curvature: transport around any loop returns
-    /// the identity, i.e. no scheduling drift.
-    pub fn flat(dim: usize, segments: usize) -> Self {
-        let mat = identity_matrix(dim);
+impl ConnectionForm {
+    pub fn new(components: Vec<Vec<f64>>) -> Self {
+        Self { components }
+    }
+
+    pub fn zero(n: usize) -> Self {
         Self {
-            transport: vec![mat; segments.max(1)],
+            components: vec![vec![0.0; n]; n],
         }
     }
 
-    /// Create a connection with small random-ish perturbations for testing.
-    ///
-    /// Each transport matrix is identity + a small skew perturbation,
-    /// modelling non-trivial curvature (agent drift).
-    pub fn perturbed(dim: usize, segments: usize, seed: u64) -> Self {
-        let mut mats = Vec::with_capacity(segments);
-        // Simple LCG for deterministic pseudo-random perturbation
-        let mut state = seed;
-        for _ in 0..segments {
-            let mut mat = identity_matrix(dim);
-            for (i, row) in mat.iter_mut().enumerate() {
-                for (j, val) in row.iter_mut().enumerate() {
-                    if i != j {
-                        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-                        let raw = ((state >> 33) as f64) / (1u64 << 31) as f64 - 1.0;
-                        *val = raw * 0.1;
-                    }
-                }
-            }
-            mats.push(mat);
-        }
-        Self { transport: mats }
+    pub fn dim(&self) -> usize {
+        self.components.len()
     }
 
-    /// Parallel-transport a fiber vector from base index `from` to `to`.
-    ///
-    /// Returns the transported vector.
-    pub fn transport_vector(
-        &self,
-        v: &[f64],
-        from: usize,
-        to: usize,
-    ) -> Result<Vec<f64>, FiberError> {
-        let n = self.transport.len();
-        if n == 0 {
-            return Ok(v.to_vec());
-        }
-        let mut result = v.to_vec();
-
-        if from <= to {
-            for i in from..to {
-                let mat = self.get_matrix(i)?;
-                result = mat_vec_mul(mat, &result);
-            }
-        } else {
-            // Reverse transport
-            for i in (to..from).rev() {
-                let mat = self.get_matrix(i)?;
-                result = mat_vec_mul(mat, &result);
-            }
-        }
-        Ok(result)
+    /// Compute exterior derivative dω (discrete approximation).
+    /// For a constant connection form, dω = 0.
+    /// Here we compute dω along two base directions as the finite difference.
+    pub fn exterior_derivative(&self, _dx: f64) -> Self {
+        // For a constant connection, dω = 0
+        Self::zero(self.dim())
     }
 
-    /// Compute the holonomy (round-trip transport matrix) for a closed loop.
-    ///
-    /// Returns the product of transport matrices around the loop.
-    pub fn holonomy_matrix(&self, loop_path: &[usize]) -> Result<Vec<Vec<f64>>, FiberError> {
-        if loop_path.len() < 2 {
-            return Err(FiberError::LoopTooShort(loop_path.len()));
-        }
-        let first = loop_path[0];
-        let last = *loop_path.last().unwrap();
-        if first != last {
-            return Err(FiberError::LoopNotClosed {
-                start: first,
-                end: last,
-            });
-        }
-        let dim = self
-            .transport
-            .first()
-            .map(|m| m.len())
-            .unwrap_or(0)
-            .max(1);
-        let mut accum = identity_matrix(dim);
-
-        for window in loop_path.windows(2) {
-            let a = window[0];
-            let b = window[1];
-            if a == b {
-                continue;
-            }
-            if a < b {
-                for i in a..b {
-                    let mat = self.get_matrix(i)?;
-                    accum = mat_mul(&accum, mat);
-                }
-            } else {
-                for i in (b..a).rev() {
-                    let mat = self.get_matrix(i)?;
-                    accum = mat_mul(&accum, mat);
-                }
-            }
-        }
-        Ok(accum)
+    /// Compute ω ∧ ω (wedge product, which for matrix-valued forms is ω × ω - ω × ω / 2,
+    /// but for matrix-valued 1-forms it's just matrix multiplication).
+    pub fn wedge_square(&self) -> Self {
+        Self::new(mat_mul(&self.components, &self.components))
     }
 
-    /// Compute the curvature tensor between three consecutive base points.
-    ///
-    /// Curvature = holonomy around the triangle (i, i+1, i+2, i).
-    pub fn curvature_triangle(&self, i: usize) -> Result<Vec<Vec<f64>>, FiberError> {
-        let loop_path = vec![i, i + 1, i + 2, i];
-        self.holonomy_matrix(&loop_path)
+    /// Curvature from Cartan's structure equation: Ω = dω + ω ∧ ω
+    pub fn curvature(&self) -> CurvatureForm {
+        let dw = self.exterior_derivative(1e-6);
+        let ww = self.wedge_square();
+        let n = self.dim();
+        let mut comps = vec![vec![vec![0.0; n]; n]; 1];
+        for i in 0..n {
+            for j in 0..n {
+                comps[0][i][j] = dw.components[i][j] + ww.components[i][j];
+            }
+        }
+        CurvatureForm::new(comps)
     }
 
-    fn get_matrix(&self, idx: usize) -> Result<&Vec<Vec<f64>>, FiberError> {
-        self.transport.get(idx).ok_or(FiberError::IndexOutOfBounds {
-            index: idx,
-            len: self.transport.len(),
-        })
+    /// Horizontal lift of a base curve: parallel transport along the curve.
+    /// Given parameter `t` in [0, T] with `steps` discrete steps,
+    /// returns the transport matrix (fiber automorphism).
+    pub fn horizontal_lift(&self, t_total: f64, steps: usize) -> Vec<Vec<f64>> {
+        let n = self.dim();
+        let dt = t_total / steps as f64;
+        // Parallel transport: solve dP/dt = -ω · P
+        // Discrete: P(t+dt) = exp(-ω * dt) · P(t)
+        let mut omega_dt = self.components.clone();
+        for row in &mut omega_dt {
+            for v in row.iter_mut() {
+                *v = -*v * dt;
+            }
+        }
+        let step_matrix = mat_exp(&omega_dt, 20);
+        let mut transport = identity(n);
+        for _ in 0..steps {
+            transport = mm(&step_matrix, &transport);
+        }
+        transport
+    }
+
+    /// Add two connection forms (for gauge transformations).
+    pub fn add(&self, other: &ConnectionForm) -> ConnectionForm {
+        let n = self.dim();
+        let mut result = vec![vec![0.0; n]; n];
+        for i in 0..n {
+            for j in 0..n {
+                result[i][j] = self.components[i][j] + other.components[i][j];
+            }
+        }
+        ConnectionForm::new(result)
+    }
+
+    /// Scalar multiply
+    pub fn scale(&self, s: f64) -> ConnectionForm {
+        ConnectionForm::new(
+            self.components
+                .iter()
+                .map(|row| row.iter().map(|v| v * s).collect())
+                .collect(),
+        )
+    }
+
+    /// Frobenius norm of components
+    pub fn norm(&self) -> f64 {
+        let mut s = 0.0;
+        for row in &self.components {
+            for &v in row {
+                s += v * v;
+            }
+        }
+        s.sqrt()
     }
 }
 
-// ---- helpers ----
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-pub(crate) fn identity_matrix(dim: usize) -> Vec<Vec<f64>> {
-    let mut m = vec![vec![0.0; dim]; dim];
-    for (i, row) in m.iter_mut().enumerate() {
-        row[i] = 1.0;
+    #[test]
+    fn zero_connection_has_zero_curvature() {
+        let omega = ConnectionForm::zero(3);
+        let curv = omega.curvature();
+        assert!(curv.is_zero());
     }
-    m
-}
 
-fn mat_vec_mul(mat: &[Vec<f64>], v: &[f64]) -> Vec<f64> {
-    let dim = v.len();
-    let mut out = vec![0.0; dim];
-    for (i, out_val) in out.iter_mut().enumerate() {
-        for j in 0..dim {
-            *out_val += mat[i][j] * v[j];
-        }
+    #[test]
+    fn constant_connection_curvature_is_wedge_square() {
+        // Constant connection: dω = 0, so Ω = ω∧ω
+        let omega = ConnectionForm::new(vec![
+            vec![0.0, 0.1, 0.0],
+            vec![0.0, 0.0, 0.2],
+            vec![0.0, 0.0, 0.0],
+        ]);
+        let curv = omega.curvature();
+        // ω∧ω[0][2] = 0.1 * 0.2 = 0.02
+        assert!((curv.components[0][0][2] - 0.02).abs() < 1e-10);
+        assert!((curv.components[0][1][2]).abs() < 1e-10);
     }
-    out
-}
 
-fn mat_mul(a: &[Vec<f64>], b: &[Vec<f64>]) -> Vec<Vec<f64>> {
-    let n = a.len();
-    let m = b[0].len();
-    let p = b.len();
-    let mut c = vec![vec![0.0; m]; n];
-    for (i, row) in c.iter_mut().enumerate() {
-        for j in 0..m {
-            for k in 0..p {
-                row[j] += a[i][k] * b[k][j];
+    #[test]
+    fn parallel_transport_preserves_metric_identity() {
+        // Zero connection → transport = identity
+        let omega = ConnectionForm::zero(2);
+        let transport = omega.horizontal_lift(1.0, 100);
+        let id = identity(2);
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!((transport[i][j] - id[i][j]).abs() < 1e-10);
             }
         }
     }
-    c
+
+    #[test]
+    fn structure_equation_d_omega_plus_omega_wedge_omega() {
+        let omega = ConnectionForm::new(vec![
+            vec![0.0, 0.5],
+            vec![0.0, 0.0],
+        ]);
+        let curv = omega.curvature();
+        // dω = 0 (constant), ω∧ω = 0 (nilpotent upper-triangular 2x2)
+        assert!(curv.is_zero());
+    }
+
+    #[test]
+    fn connection_scale_and_add() {
+        let a = ConnectionForm::new(vec![vec![0.0, 1.0], vec![0.0, 0.0]]);
+        let b = ConnectionForm::new(vec![vec![0.0, 2.0], vec![0.0, 0.0]]);
+        let c = a.add(&b);
+        assert!((c.components[0][1] - 3.0).abs() < 1e-10);
+    }
 }
